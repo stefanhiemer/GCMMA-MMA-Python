@@ -26,7 +26,6 @@ according to the specific problem being solved.
 
 # Loading modules
 from __future__ import division
-from scipy.sparse import diags # or use numpy: from numpy import diag as diags
 from scipy.linalg import solve # or use numpy: from numpy.linalg import solve
 from typing import Tuple
 import numpy as np
@@ -35,7 +34,7 @@ def mmasub(m: int, n: int, iter: int, xval: np.ndarray, xmin: np.ndarray, xmax: 
            xold1: np.ndarray, xold2: np.ndarray, f0val: float,  df0dx: np.ndarray, fval: np.ndarray,
            dfdx: np.ndarray, low: np.ndarray, upp: np.ndarray, a0: float, a: np.ndarray, c: np.ndarray,
            d: np.ndarray, move: float = 0.5, asyinit: float = 0.5, asydecr: float = 0.7, asyincr: float = 1.2, 
-           asymin: float = 0.01, asymax: float = 10, raa0: float = 0.00001, 
+           asymin: float = 0.01, asymax: float = 10., raa0: float = 0.00001, 
            albefa: float = 0.1, **kwargs) -> Tuple[np.ndarray, np.ndarray, float, np.ndarray, np.ndarray, np.ndarray, 
                                          np.ndarray, float, np.ndarray, np.ndarray]:
 
@@ -155,8 +154,8 @@ def mmasub(m: int, n: int, iter: int, xval: np.ndarray, xmin: np.ndarray, xmax: 
     PQ = 0.001 * (P + Q) + raa0 * np.dot(eeem, xmami_inv.T)
     P = P + PQ
     Q = Q + PQ
-    P = (diags(ux2.flatten(), 0).dot(P.T)).T
-    Q = (diags(xl2.flatten(), 0).dot(Q.T)).T
+    P = P * ux2.T
+    Q = Q * xl2.T
     b = np.dot(P, ux_inv) + np.dot(Q, xl_inv) - fval
 
     # Solving the subproblem using the primal-dual Newton method
@@ -256,11 +255,6 @@ def gcmmasub(m: int, n: int, iter: int, epsimin: float, xval: np.ndarray, xmin: 
     q0 *= xl2
     r0 = f0val - np.dot(p0.T, ux_inv) - np.dot(q0.T, xl_inv)
     
-    P = np.zeros((m, n)) # To be made sparse
-    Q = np.zeros((m, n)) # To be made sparse
-    P = (diags(ux2.flatten(), 0).dot(P.T)).T
-    Q = (diags(xl2.flatten(), 0).dot(Q.T)).T
-    b = np.dot(P, ux_inv) + np.dot(Q, xl_inv) - fval
     P = np.maximum(dfdx, 0)
     Q = np.maximum(-dfdx, 0)
     PQ = P + Q
@@ -268,8 +262,8 @@ def gcmmasub(m: int, n: int, iter: int, epsimin: float, xval: np.ndarray, xmin: 
     Q += 0.001 * PQ
     P += np.dot(raa, xmami_inv.T)
     Q += np.dot(raa, xmami_inv.T)
-    P = (diags(ux2.flatten(), 0).dot(P.T)).T
-    Q = (diags(xl2.flatten(), 0).dot(Q.T)).T
+    P = P * ux2.T
+    Q = Q * xl2.T
     r = fval - np.dot(P, ux_inv) - np.dot(Q, xl_inv)
     b = -r
 
@@ -394,7 +388,7 @@ def subsolv(m: int, n: int, epsimin: float, low: np.ndarray, upp: np.ndarray, al
             plam = p0 + np.dot(P.T, lam)
             qlam = q0 + np.dot(Q.T, lam)
             gvec = np.dot(P, uxinv1) + np.dot(Q, xlinv1)
-            GG = (diags(uxinv2.flatten(), 0).dot(P.T)).T - (diags(xlinv2.flatten(), 0).dot(Q.T)).T
+            GG = P * uxinv2.T - Q * xlinv2.T
             dpsidx = plam / ux2 - qlam / xl2
             delx = dpsidx - epsvecn / (x - alfa) + epsvecn / (beta - x)
             dely = c + d * y - lam - epsvecm / y
@@ -412,8 +406,7 @@ def subsolv(m: int, n: int, epsimin: float, low: np.ndarray, upp: np.ndarray, al
             if m < n:
                 blam = dellam + dely / diagy - np.dot(GG, (delx / diagx))
                 bb = np.concatenate((blam, delz), axis=0)
-                Alam = np.asarray(diags(diaglamyi.flatten(), 0) +
-                                  (diags(diagxinv.flatten(), 0).dot(GG.T).T).dot(GG.T))
+                Alam = np.diag(diaglamyi.flatten()) + (GG * diagxinv.T).dot(GG.T)
                 AAr1 = np.concatenate((Alam, a), axis=1)
                 AAr2 = np.concatenate((a, -zet / z), axis=0).T
                 AA = np.concatenate((AAr1, AAr2), axis=0)
@@ -424,8 +417,7 @@ def subsolv(m: int, n: int, epsimin: float, low: np.ndarray, upp: np.ndarray, al
             else:
                 diaglamyiinv = eem / diaglamyi
                 dellamyi = dellam + dely / diagy
-                Axx = np.asarray(diags(diagx.flatten(), 0) +
-                                 (diags(diaglamyiinv.flatten(), 0).dot(GG).T).dot(GG))
+                Axx = np.diag(diagx.flatten()) + GG.T.dot(GG * diaglamyiinv.T)
                 azz = zet / z + np.dot(a.T, (a / diaglamyi))
                 axz = np.dot(-GG.T, (a / diaglamyi))
                 bx = delx + np.dot(GG.T, (dellamyi / diaglamyi))
