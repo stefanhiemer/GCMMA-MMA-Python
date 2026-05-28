@@ -20,6 +20,23 @@ After installation, you can import the package in your Python script with:
 import mmapy
 ```
 
+## Building the Cython extension (optional)
+
+A Cython version of `mma` (`mmacy`) is available for improved performance. To compile it
+you need `cython` and a C compiler installed, then run:
+
+```bash
+pip install cython
+python setup_cython.py build_ext --inplace
+```
+
+This produces a compiled extension (e.g. `src/mmapy/mmacy.cpython-312-x86_64-linux-gnu.so`)
+next to the source file. To use it, import directly from `mmapy.mmacy` instead of `mmapy`:
+
+```python
+from mmapy.mmacy import mmasub, gcmmasub, subsolv, kktcheck, raaupdate, concheck, asymp
+```
+
 ## Cite
 
 This repository is linked to Zenodo. To ensure accurate citation of this project and facilitate traceability in case of bugs or issues, please refer to the specific version used, including the DOI from Zenodo. You can find the corresponding DOI on the [Zenodo page](https://zenodo.org/doi/10.5281/zenodo.13197565). Additionally, cite the original work by Krister Svanberg. The relevant references are provided below.
